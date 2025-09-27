@@ -12,8 +12,8 @@ impl FixedPointMath {
         denominator: U256,
     ) -> Result<U256, ProgramError> {
         let result = Self::mul_div(x, y, denominator)?;
-        if x * y % denominator != U256::zero() {
-            Ok(result + U256::one())
+        if x * y % denominator != U256_ZERO {
+            Ok(result + U256_ONE)
         } else {
             Ok(result)
         }
@@ -21,7 +21,7 @@ impl FixedPointMath {
 
     /// Multiply two U256 numbers and divide by a denominator
     pub fn mul_div(x: U256, y: U256, denominator: U256) -> Result<U256, ProgramError> {
-        if denominator == U256::zero() {
+        if denominator == U256_ZERO {
             return Err(CLMMError::MathOverflow.into());
         }
 
@@ -49,12 +49,12 @@ impl FixedPointMath {
 
     /// Calculate square root of a U256 number
     pub fn sqrt(x: U256) -> Result<U256, ProgramError> {
-        if x == U256::zero() {
-            return Ok(U256::zero());
+        if x == U256_ZERO {
+            return Ok(U256_ZERO);
         }
 
         let mut z = x;
-        let mut y = (x + U256::one()) >> 1;
+        let mut y = (x + U256_ONE) >> 1;
 
         while y < z {
             z = y;
@@ -108,8 +108,8 @@ impl FixedPointMath {
 
         let amount0 = Self::div_rounding_up(numerator1 * numerator2, sqrt_price_end * sqrt_price_start);
 
-        if round_up && (numerator1 * numerator2 % (sqrt_price_end * sqrt_price_start) != U256::zero()) {
-            amount0 + U256::one()
+        if round_up && (numerator1 * numerator2 % (sqrt_price_end * sqrt_price_start) != U256_ZERO) {
+            amount0 + U256_ONE
         } else {
             amount0
         }
@@ -141,10 +141,10 @@ impl FixedPointMath {
     pub fn div_rounding_up(numerator: U256, denominator: U256) -> U256 {
         let quotient = numerator / denominator;
         let remainder = numerator % denominator;
-        if remainder == U256::zero() {
+        if remainder == U256_ZERO {
             quotient
         } else {
-            quotient + U256::one()
+            quotient + U256_ONE
         }
     }
 
@@ -175,7 +175,7 @@ impl FixedPointMath {
         };
 
         if sqrt_price_upper == sqrt_price_lower {
-            return U256::zero();
+            return U256_ZERO;
         }
 
         let amount0_liquidity = amount0 * sqrt_price_lower * sqrt_price_upper / Q96;
@@ -256,6 +256,6 @@ mod tests {
             amount1,
         );
 
-        assert!(liquidity > U256::zero());
+        assert!(liquidity > U256_ZERO);
     }
 }

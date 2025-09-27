@@ -61,11 +61,11 @@ impl Position {
             owner,
             tick_lower,
             tick_upper,
-            liquidity: U256::zero(),
-            fee_growth_inside0_last_x128: U256::zero(),
-            fee_growth_inside1_last_x128: U256::zero(),
-            tokens_owed0: U256::zero(),
-            tokens_owed1: U256::zero(),
+            liquidity: U256_ZERO,
+            fee_growth_inside0_last_x128: U256_ZERO,
+            fee_growth_inside1_last_x128: U256_ZERO,
+            tokens_owed0: U256_ZERO,
+            tokens_owed1: U256_ZERO,
             position_id,
             created_at,
             updated_at: created_at,
@@ -131,7 +131,7 @@ impl Position {
 
     /// Check if the position is empty
     pub fn is_empty(&self) -> bool {
-        self.liquidity == U256::zero()
+        self.liquidity == U256_ZERO
     }
 
     /// Deactivate the position
@@ -214,11 +214,11 @@ mod tests {
             owner: Pubkey::default(),
             tick_lower: -100,
             tick_upper: 100,
-            liquidity: U256::zero(),
-            fee_growth_inside0_last_x128: U256::zero(),
-            fee_growth_inside1_last_x128: U256::zero(),
-            tokens_owed0: U256::zero(),
-            tokens_owed1: U256::zero(),
+            liquidity: U256_ZERO,
+            fee_growth_inside0_last_x128: U256_ZERO,
+            fee_growth_inside1_last_x128: U256_ZERO,
+            tokens_owed0: U256_ZERO,
+            tokens_owed1: U256_ZERO,
             position_id: 1,
             created_at: 1000,
             updated_at: 1000,
@@ -242,23 +242,23 @@ mod tests {
             1000,
         ).unwrap();
 
-        let new_liquidity = U256::from(1000u64);
+        let new_liquidity = U256([1000, 0, 0, 0]);
         position.update_liquidity(new_liquidity, 2000);
         assert_eq!(position.liquidity, new_liquidity);
         assert_eq!(position.updated_at, 2000);
 
-        position.add_tokens_owed(U256::from(100u64), U256::from(200u64));
-        assert_eq!(position.tokens_owed0, U256::from(100u64));
-        assert_eq!(position.tokens_owed1, U256::from(200u64));
+        position.add_tokens_owed(U256([100, 0, 0, 0]), U256([200, 0, 0, 0]));
+        assert_eq!(position.tokens_owed0, U256([100, 0, 0, 0]));
+        assert_eq!(position.tokens_owed1, U256([200, 0, 0, 0]));
 
         let (collected0, collected1) = position.collect_tokens_owed(
-            U256::from(50u64),
-            U256::from(150u64),
+            U256([50, 0, 0, 0]),
+            U256([150, 0, 0, 0]),
         );
-        assert_eq!(collected0, U256::from(50u64));
-        assert_eq!(collected1, U256::from(150u64));
-        assert_eq!(position.tokens_owed0, U256::from(50u64));
-        assert_eq!(position.tokens_owed1, U256::from(50u64));
+        assert_eq!(collected0, U256([50, 0, 0, 0]));
+        assert_eq!(collected1, U256([150, 0, 0, 0]));
+        assert_eq!(position.tokens_owed0, U256([50, 0, 0, 0]));
+        assert_eq!(position.tokens_owed1, U256([50, 0, 0, 0]));
     }
 
     #[test]

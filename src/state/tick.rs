@@ -36,12 +36,12 @@ impl Tick {
     pub fn new(tick: i32) -> Self {
         Tick {
             tick,
-            liquidity_gross: U256::zero(),
-            liquidity_net: I256::zero(),
-            fee_growth_outside0_x128: U256::zero(),
-            fee_growth_outside1_x128: U256::zero(),
-            tick_cumulative_outside: I256::zero(),
-            seconds_per_liquidity_outside_x128: U256::zero(),
+            liquidity_gross: U256_ZERO,
+            liquidity_net: I256_ZERO,
+            fee_growth_outside0_x128: U256_ZERO,
+            fee_growth_outside1_x128: U256_ZERO,
+            tick_cumulative_outside: I256_ZERO,
+            seconds_per_liquidity_outside_x128: U256_ZERO,
             seconds_outside: 0,
             initialized: false,
             reserved: [0; 256],
@@ -52,12 +52,12 @@ impl Tick {
     pub fn new_initialized(tick: i32) -> Self {
         Tick {
             tick,
-            liquidity_gross: U256::zero(),
-            liquidity_net: I256::zero(),
-            fee_growth_outside0_x128: U256::zero(),
-            fee_growth_outside1_x128: U256::zero(),
-            tick_cumulative_outside: I256::zero(),
-            seconds_per_liquidity_outside_x128: U256::zero(),
+            liquidity_gross: U256_ZERO,
+            liquidity_net: I256_ZERO,
+            fee_growth_outside0_x128: U256_ZERO,
+            fee_growth_outside1_x128: U256_ZERO,
+            tick_cumulative_outside: I256_ZERO,
+            seconds_per_liquidity_outside_x128: U256_ZERO,
             seconds_outside: 0,
             initialized: true,
             reserved: [0; 256],
@@ -250,14 +250,14 @@ mod tests {
     fn test_tick_liquidity_update() {
         let mut tick = Tick::new(100);
 
-        tick.update_liquidity(I256::from(1000u64), true);
+        tick.update_liquidity(I256([1000, 0, 0, 0]), true);
         assert!(tick.initialized);
-        assert_eq!(tick.liquidity_net, I256::from(1000u64));
-        assert_eq!(tick.liquidity_gross, U256::from(1000u64));
+        assert_eq!(tick.liquidity_net, I256([1000, 0, 0, 0]));
+        assert_eq!(tick.liquidity_gross, U256([1000, 0, 0, 0]));
 
-        tick.update_liquidity(I256::from(500u64), false);
-        assert_eq!(tick.liquidity_net, I256::from(500u64));
-        assert_eq!(tick.liquidity_gross, U256::from(1500u64));
+        tick.update_liquidity(I256([500, 0, 0, 0]), false);
+        assert_eq!(tick.liquidity_net, I256([500, 0, 0, 0]));
+        assert_eq!(tick.liquidity_gross, U256([1500, 0, 0, 0]));
     }
 
     #[test]

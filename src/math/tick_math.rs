@@ -2,19 +2,23 @@ use crate::error::CLMMError;
 use solana_program::program_error::ProgramError;
 use uint::construct_uint;
 
+use uint::U256 as Uint256;
+use uint::I256 as Int256;
+
 /// 256-bit unsigned integer for precise calculations
-pub type U256 = construct_uint! {
-    pub struct U256(4);
-};
+pub type U256 = Uint256;
 
 /// 256-bit signed integer for tick calculations
-pub type I256 = construct_uint! {
-    pub struct I256(4);
-};
+pub type I256 = Int256;
+
+// Create zero constants
+pub const U256_ZERO: U256 = Uint256::zero();
+pub const I256_ZERO: I256 = Int256::zero();
+pub const U256_ONE: U256 = Uint256::one();
 
 pub const MIN_TICK: i32 = -887272;
 pub const MAX_TICK: i32 = 887272;
-pub const Q96: U256 = U256([0, 0, 0, 1 << 32]);
+pub const Q96: U256 = Uint256::from(1u128 << 96);
 
 pub struct TickMath;
 
@@ -26,13 +30,13 @@ impl TickMath {
         }
 
         let abs_tick = if tick < 0 {
-            U256::from(tick.abs() as u64)
+            Uint256::from(tick.abs() as u64)
         } else {
-            U256::from(tick as u64)
+            Uint256::from(tick as u64)
         };
 
         let mut ratio = if tick % 2 == 0 {
-            U256::from(0xfffcb933bd6fad37aa2d162d1a594001_u128)
+            Uint256::from(0xfffcb933bd6fad37aa2d162d1a594001_u128)
         } else {
             U256::from(0xfff97272373d413259a46990580e213a_u128)
         };
@@ -167,7 +171,7 @@ impl TickMath {
         amount: U256,
         add: bool,
     ) -> Result<U256, ProgramError> {
-        if liquidity == U256::zero() {
+        if liquidity == U256_ZERO {
             return Err(CLMMError::InsufficientLiquidity.into());
         }
 
@@ -209,8 +213,8 @@ impl TickMath {
     /// Multiply and divide with rounding up
     pub fn mul_div_rounding_up(a: U256, b: U256, denominator: U256) -> Result<U256, ProgramError> {
         let result = Self::mul_div(a, b, denominator)?;
-        if a * b % denominator != U256::zero() {
-            Ok(result + U256::one())
+        if a * b % denominator != U256_ZERO {
+            Ok(result + U256_ONE)
         } else {
             Ok(result)
         }
@@ -218,7 +222,7 @@ impl TickMath {
 
     /// Multiply and divide
     pub fn mul_div(a: U256, b: U256, denominator: U256) -> Result<U256, ProgramError> {
-        if denominator == U256::zero() {
+        if denominator == U256_ZERO {
             return Err(CLMMError::MathOverflow.into());
         }
 
@@ -251,7 +255,7 @@ mod tests {
     #[test]
     fn test_get_sqrt_ratio_at_tick() {
         let ratio = TickMath::get_sqrt_ratio_at_tick(0).unwrap();
-        assert!(ratio > U256::zero());
+        assert!(ratio > U256_ZERO);
 
         let ratio_min = TickMath::get_sqrt_ratio_at_tick(MIN_TICK).unwrap();
         let ratio_max = TickMath::get_sqrt_ratio_at_tick(MAX_TICK).unwrap();

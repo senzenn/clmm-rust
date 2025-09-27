@@ -73,11 +73,11 @@ impl Pool {
             max_liquidity_per_tick: U256::MAX,
             sqrt_price_x96: initial_sqrt_price_x96,
             tick: initial_tick,
-            fee_growth_global0_x128: U256::zero(),
-            fee_growth_global1_x128: U256::zero(),
-            protocol_fees_token0: U256::zero(),
-            protocol_fees_token1: U256::zero(),
-            liquidity: U256::zero(),
+            fee_growth_global0_x128: U256_ZERO,
+            fee_growth_global1_x128: U256_ZERO,
+            protocol_fees_token0: U256_ZERO,
+            protocol_fees_token1: U256_ZERO,
+            liquidity: U256_ZERO,
             position_count: 0,
             last_update_timestamp: 0,
             unlocked: true,
@@ -144,7 +144,7 @@ mod tests {
     fn test_pool_creation() {
         let token_a = Pubkey::new_unique();
         let token_b = Pubkey::new_unique();
-        let initial_price = U256::from(1000000000000000000000000u128);
+        let initial_price = U256([1000000000000000000000000, 0, 0, 0]);
 
         let pool = Pool::new(token_a, token_b, 300, 60, initial_price).unwrap();
         assert!(pool.is_valid());
@@ -156,7 +156,7 @@ mod tests {
     fn test_token_sorting() {
         let token_a = Pubkey::new_unique();
         let token_b = Pubkey::new_unique();
-        let initial_price = U256::from(1000000000000000000000000u128);
+        let initial_price = U256([1000000000000000000000000, 0, 0, 0]);
 
         let pool = Pool::new(token_b, token_a, 300, 60, initial_price).unwrap();
         assert!(pool.token_a < pool.token_b);
@@ -166,7 +166,7 @@ mod tests {
     fn test_tick_validation() {
         let token_a = Pubkey::new_unique();
         let token_b = Pubkey::new_unique();
-        let initial_price = U256::from(1000000000000000000000000u128);
+        let initial_price = U256([1000000000000000000000000, 0, 0, 0]);
 
         let pool = Pool::new(token_a, token_b, 300, 60, initial_price).unwrap();
 
