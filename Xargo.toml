@@ -1,0 +1,2 @@
+# Xargo.toml for BPF compilation (optional)
+# This file is used for cross-compilation to BPF for Solana programs
