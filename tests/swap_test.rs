@@ -108,3 +108,37 @@ fn create_test_pool() -> Pool {
 
     Pool::new(token_a, token_b, 300, 60, initial_price).unwrap()
 }
+
+// Tests from src/math/swap.rs
+#[test]
+fn test_swap_engine_creation() {
+    let engine = SwapEngine;
+    // Test that we can create the engine
+    assert!(true);
+}
+
+#[test]
+fn test_price_impact_calculation_swap_math() {
+    let mut pool = create_test_pool();
+    let amount_in = U256([1000, 0, 0, 0]);
+    let price_impact = SwapEngine::calculate_price_impact(&pool, amount_in, true).unwrap();
+
+    assert!(price_impact >= 0 && price_impact <= 10000);
+}
+
+#[test]
+fn test_swap_output_estimation_swap_math() {
+    let pool = create_test_pool();
+    let amount_in = U256([1000, 0, 0, 0]);
+    let amount_out = SwapEngine::estimate_swap_output(&pool, amount_in, true).unwrap();
+
+    // Should get some output for non-zero input
+    assert!(amount_out > U256::zero() || pool.liquidity == U256::zero());
+}
+
+// Test from src/processor/swap.rs
+#[test]
+fn test_swap_processor_validation() {
+    // This would test the processor with mock accounts
+    assert!(true);
+}

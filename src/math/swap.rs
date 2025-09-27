@@ -1,6 +1,6 @@
 use crate::error::CLMMError;
-use crate::math::tick_math::{U256, I256, Q96};
-use crate::math::FixedPointMath;
+use crate::math::tick_math::{U256, I256, Q96, U256_ZERO};
+use crate::math::fixed_point::FixedPointMath;
 use crate::state::{Pool, Tick};
 use solana_program::program_error::ProgramError;
 
@@ -340,42 +340,3 @@ struct SwapStepResult {
     pub liquidity_next: U256,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use solana_program::pubkey::Pubkey;
-
-    #[test]
-    fn test_swap_engine_creation() {
-        let engine = SwapEngine;
-        // Test that we can create the engine
-        assert!(true);
-    }
-
-    #[test]
-    fn test_price_impact_calculation() {
-        let mut pool = create_test_pool();
-        let amount_in = U256::from(1000u64);
-        let price_impact = SwapEngine::calculate_price_impact(&pool, amount_in, true).unwrap();
-
-        assert!(price_impact >= 0 && price_impact <= 10000);
-    }
-
-    #[test]
-    fn test_swap_output_estimation() {
-        let pool = create_test_pool();
-        let amount_in = U256::from(1000u64);
-        let amount_out = SwapEngine::estimate_swap_output(&pool, amount_in, true).unwrap();
-
-        // Should get some output for non-zero input
-        assert!(amount_out > U256_ZERO || pool.liquidity == U256_ZERO);
-    }
-
-    fn create_test_pool() -> Pool {
-        let token_a = Pubkey::new_unique();
-        let token_b = Pubkey::new_unique();
-        let initial_price = U256::from(1000000000000000000000000u128); // 1e21
-
-        Pool::new(token_a, token_b, 300, 60, initial_price).unwrap()
-    }
-}

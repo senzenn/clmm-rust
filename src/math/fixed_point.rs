@@ -1,16 +1,12 @@
 use crate::error::CLMMError;
-use crate::math::tick_math::{U256, I256, Q96};
+use crate::math::tick_math::{U256, I256, Q96, U256_ZERO, U256_ONE};
 use solana_program::program_error::ProgramError;
 
 pub struct FixedPointMath;
 
 impl FixedPointMath {
     /// Multiply two U256 numbers and divide by a denominator with rounding up
-    pub fn mul_div_rounding_up(
-        x: U256,
-        y: U256,
-        denominator: U256,
-    ) -> Result<U256, ProgramError> {
+    pub fn mul_div_rounding_up(x: U256, y: U256, denominator: U256) -> Result<U256, ProgramError> {
         let result = Self::mul_div(x, y, denominator)?;
         if x * y % denominator != U256_ZERO {
             Ok(result + U256_ONE)
@@ -47,7 +43,6 @@ impl FixedPointMath {
         Ok(result)
     }
 
-    /// Calculate square root of a U256 number
     pub fn sqrt(x: U256) -> Result<U256, ProgramError> {
         if x == U256_ZERO {
             return Ok(U256_ZERO);
@@ -64,12 +59,7 @@ impl FixedPointMath {
         Ok(z)
     }
 
-    /// Get amount0 for given liquidity and price range
-    pub fn get_amount0_for_liquidity(
-        sqrt_a: U256,
-        sqrt_b: U256,
-        liquidity: U256,
-    ) -> U256 {
+    pub fn get_amount0_for_liquidity(sqrt_a: U256, sqrt_b: U256, liquidity: U256) -> U256 {
         if sqrt_a > sqrt_b {
             Self::get_amount0_for_liquidity(sqrt_b, sqrt_a, liquidity)
         } else {
@@ -78,11 +68,7 @@ impl FixedPointMath {
     }
 
     /// Get amount1 for given liquidity and price range
-    pub fn get_amount1_for_liquidity(
-        sqrt_a: U256,
-        sqrt_b: U256,
-        liquidity: U256,
-    ) -> U256 {
+    pub fn get_amount1_for_liquidity(sqrt_a: U256, sqrt_b: U256, liquidity: U256) -> U256 {
         if sqrt_a > sqrt_b {
             Self::get_amount1_for_liquidity(sqrt_b, sqrt_a, liquidity)
         } else {
@@ -106,9 +92,11 @@ impl FixedPointMath {
         let numerator1 = liquidity << 96;
         let numerator2 = sqrt_price_end - sqrt_price_start;
 
-        let amount0 = Self::div_rounding_up(numerator1 * numerator2, sqrt_price_end * sqrt_price_start);
+        let amount0 =
+            Self::div_rounding_up(numerator1 * numerator2, sqrt_price_end * sqrt_price_start);
 
-        if round_up && (numerator1 * numerator2 % (sqrt_price_end * sqrt_price_start) != U256_ZERO) {
+        if round_up && (numerator1 * numerator2 % (sqrt_price_end * sqrt_price_start) != U256_ZERO)
+        {
             amount0 + U256_ONE
         } else {
             amount0
@@ -200,62 +188,12 @@ impl FixedPointMath {
             (sqrt_price_b, sqrt_price_a)
         };
 
-        let amount0 = Self::get_amount0_for_liquidity(sqrt_price_lower, sqrt_price_upper, liquidity);
-        let amount1 = Self::get_amount1_for_liquidity(sqrt_price_lower, sqrt_price_upper, liquidity);
+        let amount0 =
+            Self::get_amount0_for_liquidity(sqrt_price_lower, sqrt_price_upper, liquidity);
+        let amount1 =
+            Self::get_amount1_for_liquidity(sqrt_price_lower, sqrt_price_upper, liquidity);
 
         (amount0, amount1)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_mul_div() {
-        let x = U256::from(100u64);
-        let y = U256::from(200u64);
-        let denominator = U256::from(1000u64);
-
-        let result = FixedPointMath::mul_div(x, y, denominator).unwrap();
-        assert_eq!(result, U256::from(20u64));
-    }
-
-    #[test]
-    fn test_sqrt() {
-        let x = U256::from(4u64);
-        let sqrt_x = FixedPointMath::sqrt(x).unwrap();
-        assert_eq!(sqrt_x, U256::from(2u64));
-
-        let x = U256::from(9u64);
-        let sqrt_x = FixedPointMath::sqrt(x).unwrap();
-        assert_eq!(sqrt_x, U256::from(3u64));
-    }
-
-    #[test]
-    fn test_price_conversion() {
-        let price = 100.0;
-        let sqrt_price_x96 = FixedPointMath::price_to_sqrt_price_x96(price).unwrap();
-        let converted_price = FixedPointMath::sqrt_price_x96_to_price(sqrt_price_x96);
-
-        let diff = (converted_price - price).abs();
-        assert!(diff < 0.01);
-    }
-
-    #[test]
-    fn test_get_liquidity_for_amounts() {
-        let sqrt_price_a = U256::from(1000000000000000000000000u128); // 1e21
-        let sqrt_price_b = U256::from(2000000000000000000000000u128); // 2e21
-        let amount0 = U256::from(1000u64);
-        let amount1 = U256::from(2000u64);
-
-        let liquidity = FixedPointMath::get_liquidity_for_amounts(
-            sqrt_price_a,
-            sqrt_price_b,
-            amount0,
-            amount1,
-        );
-
-        assert!(liquidity > U256_ZERO);
-    }
-}

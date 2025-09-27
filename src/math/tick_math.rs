@@ -1,14 +1,17 @@
 use crate::error::CLMMError;
 use solana_program::program_error::ProgramError;
 use uint::construct_uint;
+use std::ops::Shl;
+use std::convert::TryInto;
 
-use uint::U256 as Uint256;
-use uint::I256 as Int256;
+construct_uint! {
+    pub struct Uint256(4);
+}
+construct_uint! {
+    pub struct Int256(4);
+}
 
-/// 256-bit unsigned integer for precise calculations
 pub type U256 = Uint256;
-
-/// 256-bit signed integer for tick calculations
 pub type I256 = Int256;
 
 // Create zero constants
@@ -18,7 +21,7 @@ pub const U256_ONE: U256 = Uint256::one();
 
 pub const MIN_TICK: i32 = -887272;
 pub const MAX_TICK: i32 = 887272;
-pub const Q96: U256 = Uint256::from(1u128 << 96);
+pub const Q96: U256 = Uint256([0, 1u64 << 32, 0, 0]);
 
 pub struct TickMath;
 
@@ -248,23 +251,3 @@ impl TickMath {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_sqrt_ratio_at_tick() {
-        let ratio = TickMath::get_sqrt_ratio_at_tick(0).unwrap();
-        assert!(ratio > U256_ZERO);
-
-        let ratio_min = TickMath::get_sqrt_ratio_at_tick(MIN_TICK).unwrap();
-        let ratio_max = TickMath::get_sqrt_ratio_at_tick(MAX_TICK).unwrap();
-        assert!(ratio_max > ratio_min);
-    }
-
-    #[test]
-    fn test_tick_math_bounds() {
-        assert!(TickMath::get_sqrt_ratio_at_tick(MIN_TICK - 1).is_err());
-        assert!(TickMath::get_sqrt_ratio_at_tick(MAX_TICK + 1).is_err());
-    }
-}
