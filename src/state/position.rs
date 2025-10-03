@@ -3,7 +3,7 @@ use solana_program::pubkey::Pubkey;
 use crate::math::tick_math::{U256, U256_ZERO};
 
 /// Represents a liquidity position in a pool
-#[derive(BorshDeserialize, BorshSerialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Position {
     /// Pool this position belongs to
     pub pool_id: Pubkey,
@@ -138,6 +138,100 @@ impl Position {
     pub fn deactivate(&mut self, timestamp: u32) {
         self.is_active = false;
         self.updated_at = timestamp;
+    }
+}
+
+impl borsh::BorshSerialize for Position {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        self.pool_id.serialize(writer)?;
+        self.owner.serialize(writer)?;
+        self.tick_lower.serialize(writer)?;
+        self.tick_upper.serialize(writer)?;
+        self.liquidity.serialize(writer)?;
+        self.fee_growth_inside0_last_x128.serialize(writer)?;
+        self.fee_growth_inside1_last_x128.serialize(writer)?;
+        self.tokens_owed0.serialize(writer)?;
+        self.tokens_owed1.serialize(writer)?;
+        self.position_id.serialize(writer)?;
+        self.created_at.serialize(writer)?;
+        self.updated_at.serialize(writer)?;
+        self.is_active.serialize(writer)?;
+        self.reserved.serialize(writer)?;
+        Ok(())
+    }
+}
+
+impl borsh::BorshDeserialize for Position {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let pool_id = Pubkey::deserialize(buf)?;
+        let owner = Pubkey::deserialize(buf)?;
+        let tick_lower = i32::deserialize(buf)?;
+        let tick_upper = i32::deserialize(buf)?;
+        let liquidity = U256::deserialize(buf)?;
+        let fee_growth_inside0_last_x128 = U256::deserialize(buf)?;
+        let fee_growth_inside1_last_x128 = U256::deserialize(buf)?;
+        let tokens_owed0 = U256::deserialize(buf)?;
+        let tokens_owed1 = U256::deserialize(buf)?;
+        let position_id = u64::deserialize(buf)?;
+        let created_at = u32::deserialize(buf)?;
+        let updated_at = u32::deserialize(buf)?;
+        let is_active = bool::deserialize(buf)?;
+        let mut reserved = [0u8; 256];
+        for i in 0..256 {
+            reserved[i] = u8::deserialize(buf)?;
+        }
+
+        Ok(Position {
+            pool_id,
+            owner,
+            tick_lower,
+            tick_upper,
+            liquidity,
+            fee_growth_inside0_last_x128,
+            fee_growth_inside1_last_x128,
+            tokens_owed0,
+            tokens_owed1,
+            position_id,
+            created_at,
+            updated_at,
+            is_active,
+            reserved,
+        })
+    }
+
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let pool_id = Pubkey::deserialize_reader(reader)?;
+        let owner = Pubkey::deserialize_reader(reader)?;
+        let tick_lower = i32::deserialize_reader(reader)?;
+        let tick_upper = i32::deserialize_reader(reader)?;
+        let liquidity = U256::deserialize_reader(reader)?;
+        let fee_growth_inside0_last_x128 = U256::deserialize_reader(reader)?;
+        let fee_growth_inside1_last_x128 = U256::deserialize_reader(reader)?;
+        let tokens_owed0 = U256::deserialize_reader(reader)?;
+        let tokens_owed1 = U256::deserialize_reader(reader)?;
+        let position_id = u64::deserialize_reader(reader)?;
+        let created_at = u32::deserialize_reader(reader)?;
+        let updated_at = u32::deserialize_reader(reader)?;
+        let is_active = bool::deserialize_reader(reader)?;
+        let mut reserved = [0u8; 256];
+        reader.read_exact(&mut reserved)?;
+
+        Ok(Position {
+            pool_id,
+            owner,
+            tick_lower,
+            tick_upper,
+            liquidity,
+            fee_growth_inside0_last_x128,
+            fee_growth_inside1_last_x128,
+            tokens_owed0,
+            tokens_owed1,
+            position_id,
+            created_at,
+            updated_at,
+            is_active,
+            reserved,
+        })
     }
 }
 

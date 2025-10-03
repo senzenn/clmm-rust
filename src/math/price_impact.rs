@@ -1,4 +1,3 @@
-use crate::error::CLMMError;
 use crate::math::tick_math::{U256, Q96, U256_ZERO};
 use crate::math::fixed_point::FixedPointMath;
 use crate::state::Pool;
@@ -37,10 +36,10 @@ impl PriceImpactCalculator {
 
         let expected_price = if zero_for_one {
             // Token0 -> Token1: price increases
-            current_price * (amount_in as f64 / amount_out as f64)
+            current_price * ((amount_in.low_u128() as f64) / (amount_out.low_u128() as f64))
         } else {
             // Token1 -> Token0: price decreases
-            current_price * (amount_out as f64 / amount_in as f64)
+            current_price * ((amount_out.low_u128() as f64) / (amount_in.low_u128() as f64))
         };
 
         let price_change = ((expected_price - current_price) / current_price) * 100.0;
@@ -126,7 +125,7 @@ impl PriceImpactCalculator {
     }
 
     /// Classify impact severity
-    fn classify_impact_severity(impact_bps: u32) -> ImpactSeverity {
+    pub fn classify_impact_severity(impact_bps: u32) -> ImpactSeverity {
         match impact_bps {
             0..=50 => ImpactSeverity::Negligible,
             51..=200 => ImpactSeverity::Low,
@@ -167,8 +166,8 @@ impl PriceImpactCalculator {
         );
 
         // Calculate current value vs HODL value
-        let current_value = amount0_current as f64 + amount1_current as f64 * current_price;
-        let hodl_value = hodl_amount0 as f64 + hodl_amount1 as f64 * current_price;
+        let current_value = (amount0_current.low_u128() as f64) + (amount1_current.low_u128() as f64) * current_price;
+        let hodl_value = (hodl_amount0.low_u128() as f64) + (hodl_amount1.low_u128() as f64) * current_price;
 
         if hodl_value == 0.0 {
             return Ok(0.0);

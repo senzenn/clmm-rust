@@ -1,8 +1,9 @@
 use crate::error::CLMMError;
 use crate::math::tick_math::{U256, U256_ZERO};
+use crate::math::dynamic_fee::MarketDataPoint;
 use crate::state::Pool;
 use solana_program::{program_error::ProgramError, pubkey::Pubkey};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// Multi-hop swap routing system for complex swap paths
 pub struct MultiHopRouter {
@@ -203,12 +204,22 @@ impl MultiHopRouter {
                 let zero_for_one = token_in < token_out;
 
                 // Execute single hop swap
+                let mut price_history = VecDeque::new();
+                let mut volume_history = VecDeque::new();
+                let mut impact_history = VecDeque::new();
+                let mut oracle_observations = VecDeque::new();
                 let hop_result = crate::math::SwapEngine::execute_swap(
                     pool,
                     current_amount,
                     zero_for_one,
                     crate::math::tick_math::U256::MAX, // No price limit for intermediate hops
                     recipient,
+                    &mut price_history,
+                    &mut volume_history,
+                    &mut impact_history,
+                    &mut oracle_observations,
+                    1000, // Use a fixed timestamp for now
+                    1, // Sequence number
                 )?;
 
                 current_amount = hop_result.amount_out;

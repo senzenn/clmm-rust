@@ -29,7 +29,7 @@ pub const BITMAP_SEED: &[u8] = b"bitmap";
 pub const PROTOCOL_FEE_SEED: &[u8] = b"protocol_fee";
 
 /// Account sizes (in bytes)
-pub const POOL_ACCOUNT_SIZE: usize = 8 + 32 + 32 + 4 + 4 + 4 + 16 + 4 + 16 + 16 + 16 + 16 + 16 + 8 + 4 + 1 + 256;
+pub const POOL_ACCOUNT_SIZE: usize = 8 + 32 + 32 + 4 + 4 + 4 + 16 + 4 + 16 + 16 + 16 + 16 + 16 + 8 + 4 + 1 + 4 + 4 + 4 + 4 + 4 + 1 + 4 + 4 + 8 + 4 + 4 + 200;
 
 pub const POSITION_ACCOUNT_SIZE: usize = 8 + 32 + 32 + 4 + 4 + 16 + 16 + 16 + 16 + 16 + 8 + 4 + 4 + 1 + 256;
 

@@ -1,5 +1,5 @@
 use crate::error::CLMMError;
-use crate::math::tick_math::{U256, I256, Q96, U256_ZERO, U256_ONE};
+use crate::math::tick_math::{U256, Q96, U256_ZERO, U256_ONE};
 use solana_program::program_error::ProgramError;
 
 pub struct FixedPointMath;
@@ -63,7 +63,7 @@ impl FixedPointMath {
         if sqrt_a > sqrt_b {
             Self::get_amount0_for_liquidity(sqrt_b, sqrt_a, liquidity)
         } else {
-            Self::mul_div(sqrt_a, sqrt_b, Q96) * liquidity / Q96
+            (Self::mul_div(sqrt_a, sqrt_b, Q96).unwrap_or(U256_ZERO)) * liquidity / Q96
         }
     }
 
@@ -139,13 +139,13 @@ impl FixedPointMath {
     /// Convert price to sqrt price X96 format
     pub fn price_to_sqrt_price_x96(price: f64) -> Result<U256, ProgramError> {
         let sqrt_price = (price as f64).sqrt();
-        let sqrt_price_x96 = sqrt_price * (1u64 << 96) as f64;
+        let sqrt_price_x96 = sqrt_price * 79228162514264337593543950336.0; // 2^96
         Ok(U256::from(sqrt_price_x96 as u128))
     }
 
     /// Convert sqrt price X96 to regular price
     pub fn sqrt_price_x96_to_price(sqrt_price_x96: U256) -> f64 {
-        let sqrt_price = sqrt_price_x96.low_u128() as f64 / (1u64 << 96) as f64;
+        let sqrt_price = sqrt_price_x96.low_u128() as f64 / 79228162514264337593543950336.0; // 2^96
         sqrt_price * sqrt_price
     }
 

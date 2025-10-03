@@ -1,8 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use crate::math::tick_math::{U256, I256, U256_ZERO, I256_ZERO};
+use crate::math::tick_math::{U256, I256, U256_ZERO, I256_ZERO, Uint256};
 
 /// Represents a tick in the concentrated liquidity system
-#[derive(BorshDeserialize, BorshSerialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tick {
     /// The tick index
     pub tick: i32,
@@ -75,12 +75,26 @@ impl Tick {
             self.initialize();
         }
 
+        let abs_delta = if liquidity_delta < I256_ZERO {
+            let neg_delta = I256_ZERO - liquidity_delta;
+            let mut bytes = [0u8; 32];
+            for (i, chunk) in neg_delta.0.iter().enumerate() {
+                bytes[i * 8..(i + 1) * 8].copy_from_slice(&chunk.to_be_bytes());
+            }
+            Uint256::from_big_endian(&bytes)
+        } else {
+            let mut bytes = [0u8; 32];
+            for (i, chunk) in liquidity_delta.0.iter().enumerate() {
+                bytes[i * 8..(i + 1) * 8].copy_from_slice(&chunk.to_be_bytes());
+            }
+            Uint256::from_big_endian(&bytes)
+        };
         if upper {
             self.liquidity_net = self.liquidity_net + liquidity_delta;
-            self.liquidity_gross = self.liquidity_gross + liquidity_delta.abs();
+            self.liquidity_gross = self.liquidity_gross + abs_delta;
         } else {
             self.liquidity_net = self.liquidity_net - liquidity_delta;
-            self.liquidity_gross = self.liquidity_gross + liquidity_delta.abs();
+            self.liquidity_gross = self.liquidity_gross + abs_delta;
         }
     }
 
@@ -127,6 +141,80 @@ impl Tick {
     /// Check if the tick is valid (within bounds)
     pub fn is_valid(&self) -> bool {
         self.tick >= crate::math::tick_math::MIN_TICK && self.tick <= crate::math::tick_math::MAX_TICK
+    }
+}
+
+impl borsh::BorshSerialize for Tick {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        self.tick.serialize(writer)?;
+        self.liquidity_gross.serialize(writer)?;
+        self.liquidity_net.serialize(writer)?;
+        self.fee_growth_outside0_x128.serialize(writer)?;
+        self.fee_growth_outside1_x128.serialize(writer)?;
+        self.tick_cumulative_outside.serialize(writer)?;
+        self.seconds_per_liquidity_outside_x128.serialize(writer)?;
+        self.seconds_outside.serialize(writer)?;
+        self.initialized.serialize(writer)?;
+        self.reserved.serialize(writer)?;
+        Ok(())
+    }
+}
+
+impl borsh::BorshDeserialize for Tick {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let tick = i32::deserialize(buf)?;
+        let liquidity_gross = U256::deserialize(buf)?;
+        let liquidity_net = I256::deserialize(buf)?;
+        let fee_growth_outside0_x128 = U256::deserialize(buf)?;
+        let fee_growth_outside1_x128 = U256::deserialize(buf)?;
+        let tick_cumulative_outside = I256::deserialize(buf)?;
+        let seconds_per_liquidity_outside_x128 = U256::deserialize(buf)?;
+        let seconds_outside = u32::deserialize(buf)?;
+        let initialized = bool::deserialize(buf)?;
+        let mut reserved = [0u8; 256];
+        for i in 0..256 {
+            reserved[i] = u8::deserialize(buf)?;
+        }
+
+        Ok(Tick {
+            tick,
+            liquidity_gross,
+            liquidity_net,
+            fee_growth_outside0_x128,
+            fee_growth_outside1_x128,
+            tick_cumulative_outside,
+            seconds_per_liquidity_outside_x128,
+            seconds_outside,
+            initialized,
+            reserved,
+        })
+    }
+
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let tick = i32::deserialize_reader(reader)?;
+        let liquidity_gross = U256::deserialize_reader(reader)?;
+        let liquidity_net = I256::deserialize_reader(reader)?;
+        let fee_growth_outside0_x128 = U256::deserialize_reader(reader)?;
+        let fee_growth_outside1_x128 = U256::deserialize_reader(reader)?;
+        let tick_cumulative_outside = I256::deserialize_reader(reader)?;
+        let seconds_per_liquidity_outside_x128 = U256::deserialize_reader(reader)?;
+        let seconds_outside = u32::deserialize_reader(reader)?;
+        let initialized = bool::deserialize_reader(reader)?;
+        let mut reserved = [0u8; 256];
+        reader.read_exact(&mut reserved)?;
+
+        Ok(Tick {
+            tick,
+            liquidity_gross,
+            liquidity_net,
+            fee_growth_outside0_x128,
+            fee_growth_outside1_x128,
+            tick_cumulative_outside,
+            seconds_per_liquidity_outside_x128,
+            seconds_outside,
+            initialized,
+            reserved,
+        })
     }
 }
 

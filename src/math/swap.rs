@@ -1,20 +1,77 @@
 use crate::error::CLMMError;
-use crate::math::tick_math::{U256, I256, Q96, U256_ZERO};
+use crate::math::tick_math::{U256, Q96, U256_ZERO};
 use crate::math::fixed_point::FixedPointMath;
-use crate::state::{Pool, Tick};
+use crate::math::dynamic_fee::{DynamicFeeEngine, MarketDataPoint};
+use crate::math::mev_protection::{MevProtectionEngine, OracleObservation};
+use crate::state::Pool;
 use solana_program::program_error::ProgramError;
+use std::collections::VecDeque;
 
 /// Advanced swap engine with price impact calculation and slippage protection
 pub struct SwapEngine;
 
 impl SwapEngine {
-    /// Execute a swap with advanced features
+    /// Update dynamic fees based on market conditions
+    pub fn update_dynamic_fees(
+        pool: &mut Pool,
+        price_history: &mut VecDeque<MarketDataPoint>,
+        volume_history: &mut VecDeque<MarketDataPoint>,
+        impact_history: &mut VecDeque<MarketDataPoint>,
+        current_timestamp: u32,
+        current_price: U256,
+        swap_volume: U256,
+        price_impact: u32,
+    ) -> Result<bool, ProgramError> {
+        // Check if dynamic fee adjustment is enabled and if enough time has passed
+        if !pool.dynamic_fee_enabled {
+            return Ok(false);
+        }
+
+        if !DynamicFeeEngine::should_adjust_fee(pool.last_fee_adjustment, current_timestamp) {
+            return Ok(false);
+        }
+
+        // Add current market data to history
+        let market_data = MarketDataPoint {
+            timestamp: current_timestamp,
+            price: current_price,
+            volume: swap_volume,
+            price_impact,
+        };
+
+        DynamicFeeEngine::add_market_data(
+            price_history,
+            volume_history,
+            impact_history,
+            market_data,
+        );
+
+        // Calculate and apply fee adjustment
+        let adjustment = DynamicFeeEngine::update_pool_fee(
+            pool,
+            price_history,
+            volume_history,
+            impact_history,
+        )?;
+
+        // Update the last adjustment timestamp
+        pool.last_fee_adjustment = current_timestamp;
+
+        Ok(true) // Fee was adjusted
+    }
+    /// Execute a swap with advanced features, dynamic fee adjustment, and MEV protection
     pub fn execute_swap(
         pool: &mut Pool,
         amount_in: U256,
         zero_for_one: bool,
         sqrt_price_limit: U256,
         recipient: &solana_program::pubkey::Pubkey,
+        price_history: &mut VecDeque<MarketDataPoint>,
+        volume_history: &mut VecDeque<MarketDataPoint>,
+        impact_history: &mut VecDeque<MarketDataPoint>,
+        oracle_observations: &mut VecDeque<OracleObservation>,
+        current_timestamp: u32,
+        sequence_number: u64,
     ) -> Result<SwapResult, ProgramError> {
         if !pool.unlocked {
             return Err(CLMMError::Unauthorized.into());
@@ -27,6 +84,35 @@ impl SwapEngine {
         if !Self::validate_price_limit(pool.sqrt_price_x96, sqrt_price_limit, zero_for_one) {
             return Err(CLMMError::InvalidPrice.into());
         }
+
+        // Validate transaction ordering for MEV protection
+        if !MevProtectionEngine::validate_transaction_ordering(sequence_number, pool.last_sequence_number)? {
+            return Err(CLMMError::InvalidInstruction.into());
+        }
+
+        // Validate swap against MEV protection measures
+        if !MevProtectionEngine::validate_swap_mev_protection(
+            pool,
+            amount_in,
+            zero_for_one,
+            sqrt_price_limit,
+            oracle_observations,
+            &pool.mev_config,
+        )? {
+            return Err(CLMMError::InvalidPrice.into());
+        }
+
+        // Update dynamic fees based on market conditions
+        let fee_adjusted = Self::update_dynamic_fees(
+            pool,
+            price_history,
+            volume_history,
+            impact_history,
+            current_timestamp,
+            pool.sqrt_price_x96,
+            amount_in,
+            price_impact,
+        )?;
 
         let current_tick = pool.tick;
         let mut amount_out = U256_ZERO;
@@ -54,12 +140,29 @@ impl SwapEngine {
         // Update pool state
         Self::update_pool_after_swap(pool, amount_in_used, amount_out, zero_for_one)?;
 
+        // Update oracle observations and sequence number
+        pool.last_sequence_number = sequence_number;
+        MevProtectionEngine::update_oracle_observations(
+            oracle_observations,
+            pool,
+            current_timestamp,
+            100, // Max 100 oracle observations
+        )?;
+
+        // Calculate TWAP for result
+        let twap_price = MevProtectionEngine::calculate_twap(oracle_observations, pool.mev_config.oracle_window)
+            .unwrap_or(pool.sqrt_price_x96);
+
         Ok(SwapResult {
             amount_in: amount_in_used,
             amount_out,
             price_impact,
             final_sqrt_price: pool.sqrt_price_x96,
             final_tick: pool.tick,
+            fee_adjusted,
+            current_fee: pool.fee,
+            mev_protected: true,
+            twap_price,
         })
     }
 
@@ -157,9 +260,9 @@ impl SwapEngine {
         }
 
         let expected_price = if zero_for_one {
-            current_price * (amount_in / amount_out)
+            current_price * ((amount_in.low_u128() as f64) / (amount_out.low_u128() as f64))
         } else {
-            current_price * (amount_out / amount_in)
+            current_price * ((amount_out.low_u128() as f64) / (amount_in.low_u128() as f64))
         };
 
         let price_impact = ((expected_price - current_price).abs() / current_price) * 10000.0;
@@ -179,7 +282,7 @@ impl SwapEngine {
             return Ok(U256_ZERO);
         }
 
-        // Simplified estimation for small amounts
+        // Use current pool fee (may be dynamically adjusted)
         let fee_amount = amount_in * U256::from(pool.fee) / U256::from(10000);
         let amount_after_fee = amount_in - fee_amount;
 
@@ -248,19 +351,19 @@ impl SwapEngine {
         zero_for_one: bool,
     ) -> Result<U256, ProgramError> {
         if zero_for_one {
-            FixedPointMath::get_amount0_delta(
+            Ok(FixedPointMath::get_amount0_delta(
                 current_sqrt_price,
                 next_sqrt_price,
                 liquidity,
                 false,
-            )
+            ))
         } else {
-            FixedPointMath::get_amount1_delta(
+            Ok(FixedPointMath::get_amount1_delta(
                 current_sqrt_price,
                 next_sqrt_price,
                 liquidity,
                 false,
-            )
+            ))
         }
     }
 
@@ -300,7 +403,7 @@ impl SwapEngine {
         amount_out: U256,
         zero_for_one: bool,
     ) -> Result<(), ProgramError> {
-        // Update global fee growth
+        // Update global fee growth using current pool fee
         let fee_amount = amount_in * U256::from(pool.fee) / U256::from(10000);
         let amount_after_fee = amount_in - fee_amount;
 
@@ -328,6 +431,10 @@ pub struct SwapResult {
     pub price_impact: u32,
     pub final_sqrt_price: U256,
     pub final_tick: i32,
+    pub fee_adjusted: bool,
+    pub current_fee: u32,
+    pub mev_protected: bool,
+    pub twap_price: U256,
 }
 
 /// Result of a single swap step

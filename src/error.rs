@@ -23,6 +23,9 @@ pub enum CLMMError {
 
     #[error("Unauthorized")]
     Unauthorized,
+
+    #[error("Invalid oracle")]
+    InvalidOracle,
 }
 
 impl From<CLMMError> for ProgramError {

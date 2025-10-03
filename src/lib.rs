@@ -21,9 +21,9 @@ pub use error::*;
 entrypoint!(process_instruction);
 
 /// The entrypoint to our Solana program
-pub fn process_instruction(
+pub fn process_instruction<'a>(
     program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    accounts: &'a [AccountInfo<'a>],
     instruction_data: &[u8],
 ) -> ProgramResult {
     processor::process(program_id, accounts, instruction_data)

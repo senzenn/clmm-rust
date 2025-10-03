@@ -14,14 +14,40 @@ construct_uint! {
 pub type U256 = Uint256;
 pub type I256 = Int256;
 
-// Create zero constants
 pub const U256_ZERO: U256 = Uint256::zero();
 pub const I256_ZERO: I256 = Int256::zero();
 pub const U256_ONE: U256 = Uint256::one();
 
+impl borsh::BorshSerialize for I256 {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        for i in 0..4 {
+            self.0[i].serialize(writer)?;
+        }
+        Ok(())
+    }
+}
+
+impl borsh::BorshDeserialize for I256 {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let mut arr = [0u64; 4];
+        for i in 0..4 {
+            arr[i] = u64::deserialize(buf)?;
+        }
+        Ok(Int256(arr))
+    }
+
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut arr = [0u64; 4];
+        for i in 0..4 {
+            arr[i] = u64::deserialize_reader(reader)?;
+        }
+        Ok(Int256(arr))
+    }
+}
+
 pub const MIN_TICK: i32 = -887272;
 pub const MAX_TICK: i32 = 887272;
-pub const Q96: U256 = Uint256([0, 1u64 << 32, 0, 0]);
+pub const Q96: U256 = Uint256([0, 4294967296u64, 0, 0]);
 
 pub struct TickMath;
 
@@ -108,7 +134,9 @@ impl TickMath {
 
     /// Get the tick at a given sqrt price ratio
     pub fn get_tick_at_sqrt_ratio(sqrt_price_x96: U256) -> Result<i32, ProgramError> {
-        if sqrt_price_x96 < U256::from(4295128739u64) || sqrt_price_x96 >= U256::from(1461446703485210103287273052203988822378723970342u128) {
+        let min_price = Uint256([4295128739u64, 0, 0, 0]);
+        let max_price = Uint256([0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64, 0xFFFFFFFFFFFFFFFFu64]);
+        if sqrt_price_x96 < min_price || sqrt_price_x96 >= max_price {
             return Err(CLMMError::InvalidPrice.into());
         }
 
@@ -153,15 +181,15 @@ impl TickMath {
         let mut r2 = (sqrt_price_x96 * sqrt_price_x96) >> 128;
         r2 = (r2 * sqrt_price_x96) >> 128;
 
-        let tick_low = (log_2 - U256::from(0x100000000000000000000000000000000u128)) >> 128;
-        let tick_high = (log_2 + U256::from(0x100000000000000000000000000000000u128)) >> 128;
+        let tick_low = (log_2 - Uint256([0, 0, 1u64, 0])) >> 128;
+        let tick_high = (log_2 + Uint256([0, 0, 1u64, 0])) >> 128;
 
         let tick = if tick_low == tick_high {
-            tick_low.to::<i32>().unwrap_or(0)
-        } else if Self::get_sqrt_ratio_at_tick(tick_low.to::<i32>().unwrap_or(0))? <= sqrt_price_x96 {
-            tick_low.to::<i32>().unwrap_or(0)
+            tick_low.low_u32() as i32
+        } else if Self::get_sqrt_ratio_at_tick(tick_low.low_u32() as i32)? <= sqrt_price_x96 {
+            tick_low.low_u32() as i32
         } else {
-            tick_high.to::<i32>().unwrap_or(0)
+            tick_high.low_u32() as i32
         };
 
         Ok(tick)
@@ -203,11 +231,11 @@ impl TickMath {
         add: bool,
     ) -> Result<U256, ProgramError> {
         if add {
-            let liquidity_after = liquidity.checked_add(amount.shl(96) / sqrt_px96)
+            let liquidity_after = liquidity.checked_add((amount << 96) / sqrt_px96)
                 .ok_or(CLMMError::MathOverflow)?;
             Ok(liquidity_after * sqrt_px96 / Q96)
         } else {
-            let liquidity_after = liquidity.checked_sub(amount.shl(96) / sqrt_px96)
+            let liquidity_after = liquidity.checked_sub((amount << 96) / sqrt_px96)
                 .ok_or(CLMMError::InsufficientLiquidity)?;
             Ok(liquidity_after * sqrt_px96 / Q96)
         }
@@ -242,12 +270,12 @@ impl TickMath {
         let ad = a_low * denominator_high;
         let an = a_high * denominator_high;
 
-        let mut result = a_low * b_low;
-        let mut carry = if result > U256::MAX.low_u128() { 1u64 } else { 0u64 };
+        let mut result = (a_low * b_low) as u128;
+        let carry = if result > u64::MAX as u128 { 1u128 } else { 0u128 };
 
         result += carry << 64;
 
-        Ok(result)
+        Ok(U256::from(result))
     }
 }
 
